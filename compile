@@ -1,0 +1,3 @@
+g++ -std=c++11 -c  GraphHandler.cpp -o GraphHandler.o
+g++ -std=c++11 -c  Individual.cpp -o Individual.o
+g++ -std=c++11 -O0 -fopenmp InfectiousDiseaseModeling.cpp Individual.o GraphHandler.o -o main

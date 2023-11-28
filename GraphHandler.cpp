@@ -2,150 +2,8 @@
 #include <fstream>
 #include <boost/tokenizer.hpp>
 #include <boost/graph/graphviz.hpp>
-// #include "Settings.h"
-// #include "GraphHandler.h"
-
-
-
-#include <boost/graph/adjacency_list.hpp>
-
-// Default settings and some custom type definitions
-
-// S means selector
-typedef boost::adjacency_list<boost::vecS, boost::vecS, boost::undirectedS> LocationUndirectedGraph;
-
-static const bool SAVE_CSV = false;
-static const bool SAVE_GRAPHVIZ = false;
-static const bool SHOW_EPIDEMIC_RESULTS = false;
-
-static const int DEFAULT_NUMBER_OF_THREADS = 4;
-
-static const std::uint8_t DEFAULT_TOTAL_EPOCHS = 30;
-static const int DEFAULT_INDIVIDUAL_COUNT = 1000;
-
-static const int INITIAL_INFECTED_COUNT = 15;
-
-static const std::uint8_t DEFAULT_REPEAT_COUNT = 4;
-
-static const int CHUNK_SIZE_DIVIDER = 10;
-
-
-
-
-
-// This struct defines the chance for an individual to get infected as well as,
-// the infection period in epochs
-struct IndividualParameters {
-	float Infectiosity = 0.13;
-	std::uint8_t DiseaseDuration = 7;
-};
-
-
-
-
-
-class Individual {
-public:
-	Individual() : infected_(false), hit_(false), recovered_(), epochs_infected_(0), location_(0) { } // Default constructor
-	Individual(bool infected, bool hit, bool recovered, std::uint8_t days_infected, int location) // Full constructor
-		: infected_(infected), hit_(hit), recovered_(recovered), epochs_infected_(days_infected), location_(location) { }
-	void infect();
-	void recover();
-	void advance_epoch();
-	void try_infect();
-	void move(std::vector<int>& new_locations);
-	void set_location(int location);
-	int get_location() const;
-	bool is_infected() const;
-	bool is_hit() const;
-	bool is_recovered() const;
-private:
-	bool infected_;
-	bool hit_; // Indicates if individual was infected as some point
-	bool recovered_;
-	std::uint8_t epochs_infected_;
-	int location_; // Refers to the graph node that represents the current location of the individual
-	IndividualParameters parameters_;
-	static float get_random_infect_chance();
-	static int get_random_location(size_t neighbours_size);
-};
-
-// Infect the individual
-inline void Individual::infect() {
-	infected_ = true;
-	hit_ = true;
-}
-
-// Recover the individual
-inline void Individual::recover() {
-	if (infected_) {
-		infected_ = false;
-		recovered_ = true;
-	}
-}
-
-// Advanced the time for the current individual. Also check if the individual gets healed
-inline void Individual::advance_epoch() {
-	if (infected_) {
-		if (epochs_infected_ >= parameters_.DiseaseDuration)
-			recover();
-		else
-			++epochs_infected_;
-	}
-}
-
-// Set the location
-inline void Individual::set_location(int location) {
-	location_ = location;
-}
-
-// Get the location
-inline int Individual::get_location() const {
-	return location_;
-}
-
-// Check if individual is currently infected
-inline bool Individual::is_infected() const {
-	return infected_;
-}
-
-// Check if individual was infected in the past
-inline bool Individual::is_hit() const {
-	return hit_;
-}
-
-// Check if individual is recovered
-inline bool Individual::is_recovered() const {
-	return recovered_;
-}
-
-
-
-
-
-
-// GraphHandler contains only static methods that: Show the epidemic results, save statics to csv, save location graphs to graphviz dot files,
-// generate undirected location graphs, read undirected location graphs from files, allocate random individuals into a graph and
-// generate lookup map for graph node neighborhoods
-class GraphHandler {
-public:
-// Modification by Alan
-	static LocationUndirectedGraph get_location_undirected_graph_from_file(std::string filename, boost::unordered_map<size_t, int>& map_location_to_index);
-// End of modification
-	static boost::unordered_map<int, std::vector<int>> get_node_neighborhood_lookup_map(const LocationUndirectedGraph& location_graph);
-	static std::vector<std::vector<int>> get_node_neighborhood_lookup_vector(const LocationUndirectedGraph& location_graph);
-	static std::vector<Individual> get_random_individuals(int individual_count, int location_count);
-	// static LocationUndirectedGraph get_location_undirected_graph_from_file(std::string filename);
-	static LocationUndirectedGraph get_sample_location_undirected_graph();
-	static void save_undirected_graph_to_graphviz_file(std::string filename, const LocationUndirectedGraph& location_graph);
-	static void save_epoch_statistics_to_csv(std::string filename, const std::vector<std::tuple<int, int, int>>& epoch_statistics);
-	static void show_epidemic_results(int population_count, const std::vector<std::tuple<int, int, int>>& epoch_statistics);
-	static bool assert_epidemic_results(int population_count, const std::vector<std::tuple<int, int, int>>& epoch_statistics);
-};
-
-
-
-
+#include "Settings.h"
+#include "GraphHandler.h"
 
 // Scan the location graph and return a map that binds every location with a vector of neighbouring locations
 boost::unordered_map<int, std::vector<int>> GraphHandler::get_node_neighborhood_lookup_map(const LocationUndirectedGraph& location_graph) {
@@ -169,9 +27,7 @@ boost::unordered_map<int, std::vector<int>> GraphHandler::get_node_neighborhood_
 	return returning_neighborhood_lookup_map;
 }
 
-std::vector<std::vector<int>> GraphHandler::get_node_neighborhood_lookup_vector(
-	const LocationUndirectedGraph& location_graph
-	) {
+std::vector<std::vector<int>> GraphHandler::get_node_neighborhood_lookup_vector(const LocationUndirectedGraph& location_graph) {
 	
 	std::vector<std::vector<int>> returning_neighborhood_lookup_map;
 	returning_neighborhood_lookup_map.reserve(location_graph.m_vertices.size());
@@ -210,11 +66,8 @@ std::vector<Individual> GraphHandler::get_random_individuals(int individual_coun
 	return individuals;
 }
 
-//	Modification by Alan
-//	add one more output: map_location_to_index
-//  as a reference
 // Read the openstream map edges file and generate a Undirected graph of locations
-LocationUndirectedGraph GraphHandler::get_location_undirected_graph_from_file(std::string filename, boost::unordered_map<size_t, int>& map_location_to_index) {
+LocationUndirectedGraph GraphHandler::get_location_undirected_graph_from_file(std::string filename) {
 
 	using namespace std;
 	using namespace boost;
@@ -234,6 +87,7 @@ LocationUndirectedGraph GraphHandler::get_location_undirected_graph_from_file(st
 	// We use size_t because the input file has values much larger than uint32_t for each location
 	// and int for the second part of the map because the distinct location count is small and the boost:undirected graph
 	// accepts location indices of type int
+	boost::unordered_map<size_t, int> map_location_to_index;
 	int current_location_index = 0;
 
 	while (getline(input_file_stream, current_line)) {
@@ -262,7 +116,6 @@ LocationUndirectedGraph GraphHandler::get_location_undirected_graph_from_file(st
 
 	return location_graph;
 }
-// End of modification
 
 // Generate a sample location undirected graph, similar to the one given in the python toy example
 LocationUndirectedGraph GraphHandler::get_sample_location_undirected_graph() {
