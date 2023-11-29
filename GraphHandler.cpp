@@ -27,7 +27,9 @@ boost::unordered_map<int, std::vector<int>> GraphHandler::get_node_neighborhood_
 	return returning_neighborhood_lookup_map;
 }
 
-std::vector<std::vector<int>> GraphHandler::get_node_neighborhood_lookup_vector(const LocationUndirectedGraph& location_graph) {
+std::vector<std::vector<int>> GraphHandler::get_node_neighborhood_lookup_vector(
+	const LocationUndirectedGraph& location_graph
+	) {
 	
 	std::vector<std::vector<int>> returning_neighborhood_lookup_map;
 	returning_neighborhood_lookup_map.reserve(location_graph.m_vertices.size());
@@ -73,7 +75,8 @@ LocationUndirectedGraph GraphHandler::get_location_undirected_graph_from_file(st
 	using namespace boost;
 
 	LocationUndirectedGraph location_graph;
-		
+	boost::unordered_map<size_t, int> map_location_to_index;
+
 	ifstream input_file_stream(filename);
 	
 	if (!input_file_stream.is_open())
@@ -87,7 +90,6 @@ LocationUndirectedGraph GraphHandler::get_location_undirected_graph_from_file(st
 	// We use size_t because the input file has values much larger than uint32_t for each location
 	// and int for the second part of the map because the distinct location count is small and the boost:undirected graph
 	// accepts location indices of type int
-	boost::unordered_map<size_t, int> map_location_to_index;
 	int current_location_index = 0;
 
 	while (getline(input_file_stream, current_line)) {
@@ -116,6 +118,7 @@ LocationUndirectedGraph GraphHandler::get_location_undirected_graph_from_file(st
 
 	return location_graph;
 }
+// End of modification
 
 // Generate a sample location undirected graph, similar to the one given in the python toy example
 LocationUndirectedGraph GraphHandler::get_sample_location_undirected_graph() {

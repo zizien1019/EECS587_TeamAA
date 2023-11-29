@@ -25,6 +25,7 @@ void simulate_serial(int individual_count, std::uint8_t total_epochs, const Loca
 	for (std::uint8_t current_epoch = 0; current_epoch < (total_epochs + 1); ++current_epoch) {
 
 		//	Randomly move all individuals
+
 		for (index = 0; index < max_index; ++index) {
 
 			int current_location = individuals[index].get_location(); // Thread local variable
@@ -82,7 +83,8 @@ void simulate_serial(int individual_count, std::uint8_t total_epochs, const Loca
 }
 
 void simulate_parallel(int individual_count, std::uint8_t total_epochs, const LocationUndirectedGraph& individual_graph,
-	vector<Individual>& individuals, vector<std::tuple<int, int, int>>& epoch_statistics) {
+	vector<Individual>& individuals, vector<std::tuple<int, int, int>>& epoch_statistics,
+	int location_count) {
 
 	int index = 0;
 	int max_index = static_cast<int>(individuals.size());
@@ -93,6 +95,23 @@ void simulate_parallel(int individual_count, std::uint8_t total_epochs, const Lo
 
 	// Repeat for all the epochs
 	for (std::uint8_t current_epoch = 0; current_epoch < (total_epochs + 1); ++current_epoch) {
+
+//	Modification by Alan
+//	get # of individuals @ one location
+		std::vector<int> local_population(location_count,0);
+		#pragma omp parallel private(index) shared(individuals, local_population) firstprivate(chunk, max_index)
+		{
+			// Since we only change individuals that are "chunked" by index for each thread, there is no need for critical/atomic region
+			#pragma omp for schedule(auto) nowait
+			for (index = 0; index < max_index; ++index) {
+				Individual current_individual = individuals[index]; // Thread local variable
+				int current_location = current_individual.get_location(); // Thread local variable
+				local_population[current_location] += 1;
+			}
+
+		} // Implicit Barrier
+//	move all individuals
+//	End of modification
 
 		//	Randomly move all individuals
 		#pragma omp parallel private(index) shared(individuals, neighborhood_lookup_map) firstprivate(chunk, max_index)
@@ -169,7 +188,9 @@ void simulate_parallel(int individual_count, std::uint8_t total_epochs, const Lo
 		GraphHandler::show_epidemic_results(individual_count, epoch_statistics);
 }
 
-void simulate_serial_naive(int individual_count, int total_epochs, const LocationUndirectedGraph& individual_graph, vector<Individual>& individuals) {
+void simulate_serial_naive(int individual_count, int total_epochs, 
+const LocationUndirectedGraph& individual_graph, vector<Individual>& individuals, 
+int location_count) {
 	
 	// Statistics vector, index is epoch
 	vector<std::tuple<int, int, int>> epoch_statistics;
@@ -180,6 +201,26 @@ void simulate_serial_naive(int individual_count, int total_epochs, const Locatio
 	// Repeat for all the epochs
 	for (int current_epoch = 0; current_epoch < (total_epochs + 1); ++current_epoch) {
 		
+//  Modification by Alan
+//  Compute population @ each location
+		std::vector<int> local_population(location_count,0);
+		int index = 0;
+		int max_index = static_cast<int>(individuals.size());
+		int chunk = static_cast<int>(max_index / DEFAULT_NUMBER_OF_THREADS);
+
+		std::cout << "max_index: " << max_index << std::endl; // print info once
+
+		for (index = 0; index < max_index; ++index) {
+			
+			Individual current_individual = individuals[index]; // Thread local variable
+			int current_location = current_individual.get_location(); // Thread local variable
+			
+			std::cout << "current_location: " << current_location << std::endl; // print info once
+
+			local_population[current_location] += 1;
+		}
+//  End of modification
+
 		//	Randomly move all individuals
 		for (Individual& current_individual : individuals)
 			current_individual.move(neighborhood_lookup_map[current_individual.get_location()]); // Stay in the same spot or move to a neighbouring node
@@ -227,7 +268,8 @@ void simulate_serial_naive(int individual_count, int total_epochs, const Locatio
 		GraphHandler::show_epidemic_results(individual_count, epoch_statistics);
 }
 
-void reset_input(string filename, int individual_count, int& location_count, int& edge_count, LocationUndirectedGraph& individual_graph, vector<Individual>& individuals) {
+void reset_input(string filename, int individual_count, int& location_count, int& edge_count,
+LocationUndirectedGraph& individual_graph, vector<Individual>& individuals) {
 	individual_graph = GraphHandler::get_location_undirected_graph_from_file(filename); // Read graph from File OR
 	//individual_graph = GraphHandler::get_sample_location_undirected_graph(); // Generate sample graph
 
@@ -249,7 +291,9 @@ void benchmark() {
 	int individual_count = DEFAULT_INDIVIDUAL_COUNT;
 	std::uint8_t total_epochs = DEFAULT_TOTAL_EPOCHS;
 	std::uint8_t repeat_count = DEFAULT_REPEAT_COUNT;
-	string input_graph_filename = "antwerp.edges";//"minimumantwerp.edges"; // Read locations from the full Antwerp graph or from a minimal version (500 nodes)
+	string input_graph_filename = "antwerp.edges";
+	//"minimumantwerp.edges"; 
+	// Read locations from the full Antwerp graph or from a minimal version (500 nodes)
 
 	// Benchmark settings
 	int benchmark_init_thread_count = 1;
@@ -324,7 +368,7 @@ void benchmark() {
 			for (std::uint8_t current_repeat = 0; current_repeat != benchmark_repeat_count; ++current_repeat) {
 				reset_input(input_graph_filename, benchmark_individual_count, location_count, edge_count, individual_graph, individuals); // Reset individuals
 				time_start = omp_get_wtime();
-				simulate_parallel(benchmark_individual_count, total_epochs, individual_graph, individuals, epoch_statistics);
+				simulate_parallel(benchmark_individual_count, total_epochs, individual_graph, individuals, epoch_statistics, location_count);
 				time_end = omp_get_wtime() - time_start;
 				total_time += time_end;
 				if (!GraphHandler::assert_epidemic_results(benchmark_individual_count, epoch_statistics))
@@ -407,7 +451,7 @@ int main() {
 		for (std::uint8_t current_repeat = 0; current_repeat != repeat_count; ++current_repeat) {
 			reset_input(input_graph_filename, individual_count, location_count, edge_count, individual_graph, individuals); // Reset individuals
 			time_start = omp_get_wtime();
-			simulate_serial_naive(individual_count, total_epochs, individual_graph, individuals);
+			simulate_serial_naive(individual_count, total_epochs, individual_graph, individuals, location_count);
 			time_end = omp_get_wtime() - time_start;
 			total_time += time_end;
 			cout << ".";
@@ -418,9 +462,15 @@ int main() {
 		cout << endl << "Running with OpenMP...";
 		total_time = 0.0;
 		for (std::uint8_t current_repeat = 0; current_repeat != repeat_count; ++current_repeat) {
+//  Why reset input every epoch?????
 			reset_input(input_graph_filename, individual_count, location_count, edge_count, individual_graph, individuals); // Reset individuals
+//  Why?????
 			time_start = omp_get_wtime();
-			simulate_parallel(individual_count, total_epochs, individual_graph, individuals, epoch_statistics);
+
+//	Modification by Alan
+//	change function i/o
+			simulate_parallel(individual_count, total_epochs, individual_graph, individuals, epoch_statistics, location_count);
+//  End of modification
 			time_end = omp_get_wtime() - time_start;
 			total_time += time_end;
 			if (!GraphHandler::assert_epidemic_results(individual_count, epoch_statistics))
