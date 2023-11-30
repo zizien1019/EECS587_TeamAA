@@ -1,0 +1,43 @@
+----- Infectious Disease Modelling -----
+Number of threads: 4
+Individual Count: 1000
+Total Epochs: 30
+Graph from file: antwerp.edges
+Repeat count: 1
+Location Count: 1
+Edge Count: 0
+
+Running serial....642.127 ms
+
+Running with OpenMP...total population: 498
+total population: 498
+total population: 498
+total population: 498
+total population: 498
+total population: 498
+total population: 498
+total population: 498
+total population: 498
+total population: 498
+total population: 498
+total population: 498
+total population: 498
+total population: 498
+total population: 498
+total population: 498
+total population: 498
+total population: 498
+total population: 498
+total population: 498
+total population: 498
+total population: 498
+total population: 498
+total population: 498
+total population: 498
+total population: 498
+total population: 498
+total population: 498
+total population: 498
+total population: 498
+total population: 498
+.414.009 ms

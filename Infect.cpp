@@ -95,7 +95,7 @@ void simulate_parallel(int individual_count, std::uint8_t total_epochs, const Lo
 	boost::unordered_map<int, vector<int>> neighborhood_lookup_map = GraphHandler::get_node_neighborhood_lookup_map(individual_graph);
 
 	// Repeat for all the epochs
-	for (std::uint8_t current_epoch = 0; current_epoch < (total_epochs + 1); ++current_epoch) {
+	for (std::uint8_t current_epoch = 0; current_epoch < total_epochs; ++current_epoch) {
 
 		population = new vector<int>(location_count, 0);
 		omp_lock_t writelock,readlock;

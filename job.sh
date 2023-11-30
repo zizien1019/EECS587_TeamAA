@@ -17,7 +17,7 @@ export LC_ALL=en_US.utf8
 module purge
 module load gcc openmpi
 
-cd ~/InfectiousDiseaseModelling/InfectiousDiseaseModeling
+cd ~/EECS587_TeamAA
 
 g++ -std=c++11 -c  GraphHandler.cpp -o GraphHandler.o -I /home/zizien/Downloads/boost_1_82_0/out/include/
 g++ -std=c++11 -c  Individual.cpp -o Individual.o -I /home/zizien/Downloads/boost_1_82_0/out/include/
