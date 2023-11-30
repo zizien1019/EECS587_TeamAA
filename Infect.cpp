@@ -6,9 +6,12 @@
 #include "GraphHandler.h"
 #include "Settings.h"
 #include <fstream>
+#include <numeric>
 
 using namespace std;
 using namespace boost;
+
+std::vector<int>* population = nullptr;
 
 void simulate_serial(int individual_count, std::uint8_t total_epochs, const LocationUndirectedGraph& individual_graph,
 	vector<Individual>& individuals, vector<std::tuple<int, int, int>>& epoch_statistics) {
@@ -28,9 +31,6 @@ void simulate_serial(int individual_count, std::uint8_t total_epochs, const Loca
 		for (index = 0; index < max_index; ++index) {
 
 			int current_location = individuals[index].get_location(); // Thread local variable
-
-			std::cout << "current_location: " << current_location << std::endl; // print info once
-
 			//vector<int> neighborhood = neighborhood_lookup_map[current_location]; // Thread local variable, get the location's neighbourhood
 			vector<int> neighborhood = neighborhood_lookup_vector[current_location]; // Thread local variable, get the location's neighbourhood
 			individuals[index].move(neighborhood); // Stay in the same spot or move to a neighbouring node
@@ -85,7 +85,7 @@ void simulate_serial(int individual_count, std::uint8_t total_epochs, const Loca
 }
 
 void simulate_parallel(int individual_count, std::uint8_t total_epochs, const LocationUndirectedGraph& individual_graph,
-	vector<Individual>& individuals, vector<std::tuple<int, int, int>>& epoch_statistics) {
+	vector<Individual>& individuals, vector<std::tuple<int, int, int>>& epoch_statistics, int location_count) {
 
 	int index = 0;
 	int max_index = static_cast<int>(individuals.size());
@@ -97,6 +97,37 @@ void simulate_parallel(int individual_count, std::uint8_t total_epochs, const Lo
 	// Repeat for all the epochs
 	for (std::uint8_t current_epoch = 0; current_epoch < (total_epochs + 1); ++current_epoch) {
 
+		population = new vector<int>(location_count, 0);
+		omp_lock_t writelock,readlock;
+		omp_init_lock(&writelock);
+		omp_init_lock(&readlock);
+
+		//	Calculate the population at each location
+		#pragma omp parallel private(index) shared(individuals) firstprivate(chunk, max_index)
+		{
+			#pragma omp for schedule(static, chunk) nowait
+
+			for (index = 0; index < max_index; ++index) {
+				Individual current_individual = individuals[index]; // Thread local variable
+				
+				int current_location = current_individual.get_location(); // Thread local variable
+				
+				omp_set_lock(&writelock);
+
+				(*population)[current_location] += 1;
+				
+				omp_unset_lock(&writelock);
+
+				individuals[index] = current_individual; // Save individual back to the shared memory space
+
+			}
+			
+		} // Implicit Barrier
+
+		int sum = std::accumulate(population->begin(), population->end(), 0);
+    	// Print the sum
+    	std::cout << "total population: " << sum << std::endl;
+
 		//	Randomly move all individuals
 		#pragma omp parallel private(index) shared(individuals, neighborhood_lookup_map) firstprivate(chunk, max_index)
 		{
@@ -105,9 +136,6 @@ void simulate_parallel(int individual_count, std::uint8_t total_epochs, const Lo
 
 				Individual current_individual = individuals[index]; // Thread local variable
 				int current_location = current_individual.get_location(); // Thread local variable
-				
-				// std::cout << "current_location: " << current_location << std::endl; // print info once
-
 				vector<int> neighborhood = neighborhood_lookup_map[current_location]; // Thread local variable, get the location's neighbourhood
 				current_individual.move(neighborhood); // Stay in the same spot or move to a neighbouring node
 
@@ -190,8 +218,6 @@ void simulate_serial_naive(int individual_count, int total_epochs, const Locatio
 		for (Individual& current_individual : individuals)
 			current_individual.move(neighborhood_lookup_map[current_individual.get_location()]); // Stay in the same spot or move to a neighbouring node
 		
-			// cout << "current location:" << current_individual.get_location() << endl;
-
 		// foreach each individual		
 		for (int individual_index = 0; individual_index != individuals.size(); ++individual_index) {			
 			
@@ -332,7 +358,7 @@ void benchmark() {
 			for (std::uint8_t current_repeat = 0; current_repeat != benchmark_repeat_count; ++current_repeat) {
 				reset_input(input_graph_filename, benchmark_individual_count, location_count, edge_count, individual_graph, individuals); // Reset individuals
 				time_start = omp_get_wtime();
-				simulate_parallel(benchmark_individual_count, total_epochs, individual_graph, individuals, epoch_statistics);
+				simulate_parallel(benchmark_individual_count, total_epochs, individual_graph, individuals, epoch_statistics, location_count);
 				time_end = omp_get_wtime() - time_start;
 				total_time += time_end;
 				if (!GraphHandler::assert_epidemic_results(benchmark_individual_count, epoch_statistics))
@@ -364,7 +390,7 @@ void benchmark() {
 
 int main() {
 
-	bool do_benchmark = flase;
+	bool do_benchmark = false;
 
 	if (do_benchmark) {
 		benchmark();
@@ -413,7 +439,7 @@ int main() {
 		cout << endl << "Running serial...";
 		total_time = 0.0;
 		for (std::uint8_t current_repeat = 0; current_repeat != repeat_count; ++current_repeat) {
-			// reset_input(input_graph_filename, individual_count, location_count, edge_count, individual_graph, individuals); // Reset individuals
+			reset_input(input_graph_filename, individual_count, location_count, edge_count, individual_graph, individuals); // Reset individuals
 			time_start = omp_get_wtime();
 			simulate_serial_naive(individual_count, total_epochs, individual_graph, individuals);
 			time_end = omp_get_wtime() - time_start;
@@ -428,7 +454,7 @@ int main() {
 		for (std::uint8_t current_repeat = 0; current_repeat != repeat_count; ++current_repeat) {
 			reset_input(input_graph_filename, individual_count, location_count, edge_count, individual_graph, individuals); // Reset individuals
 			time_start = omp_get_wtime();
-			simulate_parallel(individual_count, total_epochs, individual_graph, individuals, epoch_statistics);
+			simulate_parallel(individual_count, total_epochs, individual_graph, individuals, epoch_statistics, location_count);
 			time_end = omp_get_wtime() - time_start;
 			total_time += time_end;
 			if (!GraphHandler::assert_epidemic_results(individual_count, epoch_statistics))
@@ -436,7 +462,5 @@ int main() {
 			cout << ".";
 		}
 		cout << (total_time / repeat_count) * 1000.0 << " ms" << endl;
-
-		system("pause");
 	}
 }

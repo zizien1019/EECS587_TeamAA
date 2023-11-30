@@ -22,7 +22,7 @@ float Individual::get_random_infect_chance() {
 int Individual::get_random_location(size_t neighbours_size) {
 	std::random_device random_device;
 	std::mt19937 mersenne_twister_engine(random_device());
-	std::uniform_int_distribution<> uniform_int_distribution(0, static_cast<int>(neighbours_size)); // Since we added the current location, no need to decarase the max int
+	std::uniform_int_distribution<> uniform_int_distribution(0, static_cast<int>(neighbours_size)-1); // Since we added the current location, no need to decarase the max int
 
 	return uniform_int_distribution(mersenne_twister_engine);
 }
