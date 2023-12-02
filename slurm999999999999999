@@ -4,40 +4,39 @@ Individual Count: 1000
 Total Epochs: 30
 Graph from file: antwerp.edges
 Repeat count: 1
-Location Count: 1
-Edge Count: 0
+Location Count: 152506
+Edge Count: 170294
 
-Running serial....642.127 ms
+Running serial....712.179 ms
 
-Running with OpenMP...total population: 498
-total population: 498
-total population: 498
-total population: 498
-total population: 498
-total population: 498
-total population: 498
-total population: 498
-total population: 498
-total population: 498
-total population: 498
-total population: 498
-total population: 498
-total population: 498
-total population: 498
-total population: 498
-total population: 498
-total population: 498
-total population: 498
-total population: 498
-total population: 498
-total population: 498
-total population: 498
-total population: 498
-total population: 498
-total population: 498
-total population: 498
-total population: 498
-total population: 498
-total population: 498
-total population: 498
-.414.009 ms
+Running with OpenMP...total population: 1000
+total population: 1000
+total population: 1000
+total population: 1000
+total population: 1000
+total population: 1000
+total population: 1000
+total population: 1000
+total population: 1000
+total population: 1000
+total population: 1000
+total population: 1000
+total population: 1000
+total population: 1000
+total population: 1000
+total population: 1000
+total population: 1000
+total population: 1000
+total population: 1000
+total population: 1000
+total population: 1000
+total population: 1000
+total population: 1000
+total population: 1000
+total population: 1000
+total population: 1000
+total population: 1000
+total population: 1000
+total population: 1000
+total population: 1000
+.501.359 ms
